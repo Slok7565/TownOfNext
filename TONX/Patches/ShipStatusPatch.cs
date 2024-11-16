@@ -2,6 +2,8 @@ using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using static Il2CppSystem.TimeZoneInfo;
+using TONX.Roles.Core;
 
 namespace TONX;
 
@@ -86,10 +88,18 @@ class StartPatch
 [HarmonyPatch(typeof(ShipStatus), nameof(ShipStatus.StartMeeting))]
 class StartMeetingPatch
 {
-    public static void Prefix(ShipStatus __instance, PlayerControl reporter, GameData.PlayerInfo target)
+    public static void Prefix(ShipStatus __instance, PlayerControl reporter, NetworkedPlayerInfo target)
     {
         MeetingStates.ReportTarget = target;
         MeetingStates.DeadBodies = UnityEngine.Object.FindObjectsOfType<DeadBody>();
+    }
+    public static void Postfix()
+    {
+        // 全プレイヤーを湧いてない状態にする
+        foreach (var state in PlayerState.AllPlayerStates.Values)
+        {
+            state.HasSpawned = false;
+        }
     }
 }
 [HarmonyPatch(typeof(ShipStatus), nameof(ShipStatus.Begin))]
@@ -115,3 +125,5 @@ class CheckTaskCompletionPatch
         return true;
     }
 }
+
+

@@ -474,7 +474,7 @@ public static class Utils
         return parentheses ? $"({mode})" : mode;
     }
 
-    public static bool HasTasks(GameData.PlayerInfo p, bool ForRecompute = true)
+    public static bool HasTasks(NetworkedPlayerInfo p, bool ForRecompute = true)
     {
         if (GameStates.IsLobby) return false;
         //Tasksがnullの場合があるのでその場合タスク無しとする
@@ -735,6 +735,7 @@ public static class Utils
             if (opt.Value.GetBool()) ShowChildrenSettings(opt.Value, ref sb, deep + 1);
         }
     }
+    public static string LastResult = "";
     public static void ShowLastResult(byte PlayerId = byte.MaxValue)
     {
         if (AmongUsClient.Instance.IsGameStarted)
@@ -756,12 +757,12 @@ public static class Utils
         List<byte> cloneRoles = new(PlayerState.AllPlayerStates.Keys);
         foreach (var id in Main.winnerList.Where(i => !EndGamePatch.SummaryText[i].Contains("NotAssigned")))
         {
-            sb.Append($"\n★ ".Color(winnerColor)).Append(SummaryTexts(id, false));
+            sb.Append($"\n★ ".Color(winnerColor)).Append(SummaryTexts(id, true));
             cloneRoles.Remove(id);
         }
         foreach (var id in cloneRoles.Where(i => !EndGamePatch.SummaryText[i].Contains("NotAssigned")))
         {
-            sb.Append($"\n　 ").Append(SummaryTexts(id, false));
+            sb.Append($"\n　 ").Append(SummaryTexts(id, true));
         }
         SendMessage(sb.ToString(), PlayerId);
     }
@@ -896,7 +897,7 @@ public static class Utils
         cachedPlayers[playerId] = player;
         return player;
     }
-    public static GameData.PlayerInfo GetPlayerInfoById(int PlayerId) =>
+    public static NetworkedPlayerInfo GetPlayerInfoById(int PlayerId) =>
         GameData.Instance.AllPlayers.ToArray().Where(info => info.PlayerId == PlayerId).FirstOrDefault();
     private static StringBuilder SelfMark = new(20);
     private static StringBuilder SelfSuffix = new(20);
@@ -1152,7 +1153,17 @@ public static class Utils
         foreach (char c in t) bc += Encoding.GetEncoding("UTF-8").GetByteCount(c.ToString()) == 1 ? 1 : 2;
         return t?.PadRight(Mathf.Max(num - (bc - t.Length), 0));
     }
+    public static DirectoryInfo GetLogFolder(bool auto = false)
+    {
+        var folder = Directory.CreateDirectory($"{Application.persistentDataPath}/TownOfHost/Logs");
+        if (auto)
+        {
+            folder = Directory.CreateDirectory($"{folder.FullName}/AutoLogs");
+        }
+        return folder;
+    }
     public static void DumpLog(bool popup = false)
+
     {
         string f = $"{Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)}/TONX-logs/";
         string t = DateTime.Now.ToString("yyyy-MM-dd_HH.mm.ss");
@@ -1177,30 +1188,44 @@ public static class Utils
         };
         Process.Start(startInfo);
     }
+    public static string ChatSummary;
     public static string SummaryTexts(byte id, bool isForChat)
     {
-        // 全プレイヤー中最長の名前の長さからプレイヤー名の後の水平位置を計算する
-        // 1em ≒ 半角2文字
-        // 空白は0.5emとする
-        // SJISではアルファベットは1バイト，日本語は基本的に2バイト
-        var longestNameByteCount = Main.AllPlayerNames.Values.Select(name => name.GetByteCount()).OrderByDescending(byteCount => byteCount).FirstOrDefault();
-        //最大11.5emとする(★+日本語10文字分+半角空白)
-        var pos = Math.Min(((float)longestNameByteCount / 2) + 1.5f /* ★+末尾の半角空白 */ , 11.5f);
-
         var builder = new StringBuilder();
-        builder.Append(isForChat ? Main.AllPlayerNames[id] : ColorString(Main.PlayerColors[id], Main.AllPlayerNames[id]));
-        string progressText = string.IsNullOrEmpty(GetProgressText(id)) ? GetProgressText(id) : GetKillCountText(id);
-        builder.AppendFormat("<pos={0}em>", pos).Append(isForChat ? progressText.RemoveColorTags() : progressText).Append("</pos>");
-        // "(00/00) " = 4em
-        pos += 4f;
-        builder.AppendFormat("<pos={0}em>", pos).Append(GetVitalText(id)).Append("</pos>");
-        // "Lover's Suicide " = 8em
-        // "回線切断 " = 4.5em
-        pos += DestroyableSingleton<TranslationController>.Instance.currentLanguage.languageID is SupportedLangs.English or SupportedLangs.Russian ? 8f : 4.5f;
-        builder.AppendFormat("<pos={0}em>", pos);
-        builder.Append(isForChat ? GetTrueRoleName(id, false).RemoveColorTags() : GetTrueRoleName(id, false));
-        builder.Append(isForChat ? GetSubRolesText(id).RemoveColorTags() : GetSubRolesText(id));
-        builder.Append("</pos>");
+        // チャットならposタグを使わない(文字数削減)
+        if (isForChat)
+        {
+            return ChatSummary ?? "";
+        }
+        else
+        {
+            builder.Append(Main.AllPlayerNames[id]);
+            builder.Append(": ").Append(GetProgressText(id).RemoveColorTags());
+            builder.Append(' ').Append(GetVitalText(id));
+            builder.Append(' ').Append(GetTrueRoleName(id, false).RemoveColorTags());
+            builder.Append(' ').Append(GetSubRolesText(id).RemoveColorTags());
+            ChatSummary = builder.ToString();
+            builder = new StringBuilder();
+            // 全プレイヤー中最長の名前の長さからプレイヤー名の後の水平位置を計算する
+            // 1em ≒ 半角2文字
+            // 空白は0.5emとする
+            // SJISではアルファベットは1バイト，日本語は基本的に2バイト
+            var longestNameByteCount = Main.AllPlayerNames.Values.Select(name => name.GetByteCount()).OrderByDescending(byteCount => byteCount).FirstOrDefault();
+            //最大11.5emとする(★+日本語10文字分+半角空白)
+            var pos = Math.Min(((float)longestNameByteCount / 2) + 1.5f /* ★+末尾の半角空白 */ , 11.5f);
+            builder.Append(ColorString(Main.PlayerColors[id], Main.AllPlayerNames[id]));
+            builder.AppendFormat("<pos={0}em>", pos).Append(GetProgressText(id)).Append("</pos>");
+            // "(00/00) " = 4em
+            pos += 4f;
+            builder.AppendFormat("<pos={0}em>", pos).Append(GetVitalText(id)).Append("</pos>");
+            // "Lover's Suicide " = 8em
+            // "回線切断 " = 4.5em
+            pos += DestroyableSingleton<TranslationController>.Instance.currentLanguage.languageID == SupportedLangs.English ? 8f : 4.5f;
+            builder.AppendFormat("<pos={0}em>", pos);
+            builder.Append(GetTrueRoleName(id, false));
+            builder.Append(GetSubRolesText(id));
+            builder.Append("</pos>");
+        }
         return builder.ToString();
     }
     public static string RemoveHtmlTags(this string str) => Regex.Replace(str, "<[^>]*?>", string.Empty);

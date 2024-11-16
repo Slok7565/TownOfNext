@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using TONX.Roles.Core;
 using TONX.Roles.Core.Interfaces;
+using static UnityEngine.GraphicsBuffer;
 
 namespace TONX.Roles.Neutral;
 public sealed class Executioner : RoleBase, IAdditionalWinner
@@ -34,7 +35,6 @@ public sealed class Executioner : RoleBase, IAdditionalWinner
         ChangeRolesAfterTargetKilled = ChangeRoles[OptionChangeRolesAfterTargetKilled.GetValue()];
 
         Executioners.Add(this);
-        CustomRoleManager.OnMurderPlayerOthers.Add(OnMurderPlayerOthers);
 
         TargetExiled = false;
     }
@@ -95,19 +95,15 @@ public sealed class Executioner : RoleBase, IAdditionalWinner
     {
         Executioners.Remove(this);
 
-        if (Executioners.Count <= 0)
-        {
-            CustomRoleManager.OnMurderPlayerOthers.Remove(OnMurderPlayerOthers);
-        }
     }
     public void SendRPC()
     {
         if (!AmongUsClient.Instance.AmHost) return;
 
-        using var sender = CreateSender(CustomRPC.SetExecutionerTarget);
+        using var sender = CreateSender();
         sender.Writer.Write(TargetId);
     }
-    public override void ReceiveRPC(MessageReader reader, CustomRPC rpcType)
+    public override void ReceiveRPC(MessageReader reader)
     {
         byte targetId = reader.ReadByte();
         TargetId = targetId;
@@ -117,13 +113,11 @@ public sealed class Executioner : RoleBase, IAdditionalWinner
         TargetId = byte.MaxValue;
         SendRPC();
     }
-    public static void OnMurderPlayerOthers(MurderInfo info)
+    public override void OnPlayerDeath(PlayerControl player, CustomDeathReason deathReason, bool isOnMeeting = false)
     {
-        var target = info.AttemptTarget;
-
         foreach (var executioner in Executioners.ToArray())
         {
-            if (executioner.TargetId == target.PlayerId)
+            if (executioner.TargetId == player.PlayerId)
             {
                 executioner.ChangeRole();
                 break;
@@ -137,7 +131,7 @@ public sealed class Executioner : RoleBase, IAdditionalWinner
 
         return TargetId == seen.PlayerId ? Utils.ColorString(RoleInfo.RoleColor, "♦") : "";
     }
-    public override Action CheckExile(GameData.PlayerInfo exiled, ref bool DecidedWinner, ref List<string> WinDescriptionText)
+    public override Action CheckExile(NetworkedPlayerInfo exiled, ref bool DecidedWinner, ref List<string> WinDescriptionText)
     {
         if (!AmongUsClient.Instance.AmHost) return null;
         if (Player?.IsAlive() != true) return null;

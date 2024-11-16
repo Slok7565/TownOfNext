@@ -204,6 +204,8 @@ public static class Options
     public static OptionItem SabotageTimeControl;
     public static OptionItem PolusReactorTimeLimit;
     public static OptionItem AirshipReactorTimeLimit;
+    public static OptionItem FungleReactorTimeLimit;
+    public static OptionItem FungleMushroomMixupDuration;
 
     public static OptionItem LightsOutSpecialSettings;
     public static OptionItem DisableAirshipViewingDeckLightsPanel;
@@ -347,6 +349,8 @@ public static class Options
     public static OptionItem KickPlayerFriendCodeNotExist;
     public static OptionItem ApplyDenyNameList;
     public static OptionItem ApplyBanList;
+    public static OptionItem FixSpawnPacketSize;
+
     public static OptionItem AutoKickStart;
     public static OptionItem AutoKickStartAsBan;
     public static OptionItem AutoKickStartTimes;
@@ -463,7 +467,11 @@ public static class Options
         if (IsLoaded) return;
         OptionSaver.Initialize();
 
-        // 预设
+        // 预设//9人以上部屋で落ちる現象の対策
+        FixSpawnPacketSize = BooleanOptionItem.Create(1_000_200, "FixSpawnPacketSize", false, TabGroup.SystemSettings, true)
+            .SetColor(new Color32(255, 255, 0, 255))
+            .SetGameMode(CustomGameMode.All);
+
         _ = PresetOptionItem.Create(0, TabGroup.SystemSettings)
             .SetColor(new Color32(255, 235, 4, byte.MaxValue))
             .SetHeader(true);
@@ -478,7 +486,7 @@ public static class Options
         CustomRoleCounts = new();
         CustomRoleSpawnChances = new();
 
-        var sortedRoleInfo = CustomRoleManager.AllRolesInfo.Values.OrderBy(role => role.ConfigId);
+        var sortedRoleInfo = CustomRoleManager.AllRolesInfo.Values.Where(role => !(role.RoleName.GetRoleInfo()?.Hidden ?? false)).OrderBy(role => role.ConfigId);
 
         // 各职业的总体设定
         ImpKnowAlliesRole = BooleanOptionItem.Create(1_000_001, "ImpKnowAlliesRole", true, TabGroup.ImpostorRoles, false)
@@ -940,6 +948,12 @@ public static class Options
         AirshipReactorTimeLimit = FloatOptionItem.Create(3_021_003, "AirshipReactorTimeLimit", new(1f, 90f, 1f), 60f, TabGroup.GameSettings, false).SetParent(SabotageTimeControl)
             .SetValueFormat(OptionFormat.Seconds)
             .SetGameMode(CustomGameMode.Standard);
+        FungleReactorTimeLimit = FloatOptionItem.Create(3_021_004, "FungleReactorTimeLimit", new(1f, 90f, 1f), 60f, TabGroup.GameSettings, false).SetParent(SabotageTimeControl)
+               .SetValueFormat(OptionFormat.Seconds)
+               .SetGameMode(CustomGameMode.Standard);
+        FungleMushroomMixupDuration = FloatOptionItem.Create(3_021_005, "FungleMushroomMixupDuration", new(1f, 20f, 1f), 10f, TabGroup.GameSettings, false).SetParent(SabotageTimeControl)
+            .SetValueFormat(OptionFormat.Seconds)
+            .SetGameMode(CustomGameMode.Standard);
 
         // 停电特殊设定（飞艇）
         LightsOutSpecialSettings = BooleanOptionItem.Create(3_022_001, "LightsOutSpecialSettings", false, TabGroup.GameSettings, false)
@@ -1072,7 +1086,7 @@ public static class Options
     public static void SetupRoleOptions(int id, TabGroup tab, CustomRoles role, IntegerValueRule assignCountRule = null, CustomGameMode customGameMode = CustomGameMode.Standard)
     {
         if (role.IsVanilla()) return;
-        assignCountRule ??= new(1, 15, 1);
+        assignCountRule ??= role.GetRoleInfo().AssignCountRule ?? new(1, 15, 1);
 
         bool broken = role.GetRoleInfo()?.Broken ?? false;
 
