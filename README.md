@@ -2,16 +2,13 @@
   <img width="160" src="Assets/LOGO.png" alt="logo"></br>
   <img width="160" src="Assets/Title.svg" alt="title"></br>
 
-
-  </br></br>
-
-  <h1>:point_right: <a href="https://www.tonx.cc">𝑪𝒍𝒊𝒄𝒌 𝑴𝒆</a> :point_left:</h1> 
-  <h3>to view the introduction & installation tutorial</h3>  
-
   </br></br>
 
   <h1>:fire: 𝓐𝓷𝓷𝓸𝓾𝓷𝓬𝓮𝓶𝓮𝓷𝓽 :fire:</h1>
-  <p>Since May 20, TOHE stopped development due to some reasons. At the request of many players, TOHE will maintain the most basic adaptation and synchronize updates with TOH to ensure that players in need can still play normally. By the way, TOHE has renamed TONX</p>
+  <p>The TOHE project ceased development on May 20, 2023, with its final release being <a href="https://github.com/KARPED1EM/TownOfNext/releases/tag/v2.3.6">v2.3.6</a>.</p>
+  <p>With the aim of continuing TOHE's legacy and providing a foundation for other forks, we rebuilt the project based on the new TOH base and renamed it to TONX. However, due to limited resources, TONX development has also been discontinued after version <a href="https://github.com/KARPED1EM/TownOfNext/releases/tag/v3.0.1">v3.0.1</a>.</p>
+  <p>While the project remains open-source, active maintenance has ceased. We may review and accept certain compatibility-focused pull requests, but will only ensure their security aspects.</p>
+  <p>We apologize that we cannot provide releases for versions beyond official maintenance. If you need them, please consider contacting the PR submitters or compiling the code yourself.</p>
 
   </br></br>
 
