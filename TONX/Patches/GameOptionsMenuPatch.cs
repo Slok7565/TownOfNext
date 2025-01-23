@@ -1,649 +1,397 @@
 using System;
-using Il2CppSystem.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+using AmongUs.GameOptions;
 using HarmonyLib;
+using TONX.Modules.OptionItems;
+using TONX.Modules.OptionItems.Interfaces;
 using UnityEngine;
+using UnityEngine.UI;
+using static TONX.Translator;
+using Object = UnityEngine.Object;
 
-namespace TONX;
-
-public static class ModGameOptionsMenu
+namespace TONX
 {
-    public static int TabIndex = 0;
-    public static Dictionary<OptionBehaviour, int> OptionList = new();
-    public static Dictionary<int, OptionBehaviour> BehaviourList = new();
-    public static Dictionary<int, CategoryHeaderMasked> CategoryHeaderList = new();
-}
-[HarmonyPatch(typeof(GameOptionsMenu))]
-public static class GameOptionsMenuPatch
-{
-    public static GameOptionsMenu Instance;
-    [HarmonyPatch(nameof(GameOptionsMenu.Initialize)), HarmonyPrefix]
-    private static bool InitializePrefix(GameOptionsMenu __instance)
+    [HarmonyPatch(typeof(GameSettingMenu))]
+    public static class GameSettingMenuPatch
     {
-        Instance ??= __instance;
-        if (ModGameOptionsMenu.TabIndex < 3) return true;
+        private static GameOptionsMenu tonxSettingsTab;
+        private static PassiveButton tonxSettingsButton;
+        public static CategoryHeaderMasked SystemSettingsCategoryHeader { get; private set; }
+        public static CategoryHeaderMasked GameSettingsCategoryHeader { get; private set; }
+        public static CategoryHeaderMasked ImpostorRoleCategoryHeader { get; private set; }
+        public static CategoryHeaderMasked CrewmateRoleCategoryHeader { get; private set; }
+        public static CategoryHeaderMasked NeutralRoleCategoryHeader { get; private set; }
+        public static CategoryHeaderMasked AddOnCategoryHeader { get; private set; }
+        public static CategoryHeaderMasked OtherRoleCategoryHeader { get; private set; }
 
-        if (__instance.Children == null || __instance.Children.Count == 0)
+        [HarmonyPatch(nameof(GameSettingMenu.Start)), HarmonyPostfix]
+        public static void StartPostfix(GameSettingMenu __instance)
         {
-            __instance.MapPicker.gameObject.SetActive(false);
-            //__instance.MapPicker.Initialize(20);
-            //BaseGameSetting mapNameSetting = GameManager.Instance.GameSettingsList.MapNameSetting;
-            //__instance.MapPicker.SetUpFromData(mapNameSetting, 20);
-            __instance.Children = new Il2CppSystem.Collections.Generic.List<OptionBehaviour>();
-            //__instance.Children.Add(__instance.MapPicker);
-            __instance.CreateSettings();
-            __instance.cachedData = GameOptionsManager.Instance.CurrentGameOptions;
-            for (int i = 0; i < __instance.Children.Count; i++)
+            tonxSettingsTab = Object.Instantiate(__instance.GameSettingsTab, __instance.GameSettingsTab.transform.parent);
+            tonxSettingsTab.name = TONXMenuName;
+            var vanillaOptions = tonxSettingsTab.GetComponentsInChildren<OptionBehaviour>();
+            foreach (var vanillaOption in vanillaOptions)
             {
-                OptionBehaviour optionBehaviour = __instance.Children[i];
-                optionBehaviour.OnValueChanged = new Action<OptionBehaviour>(__instance.ValueChanged);
-                //if (AmongUsClient.Instance && !AmongUsClient.Instance.AmHost)
-                //{
-                //    optionBehaviour.SetAsPlayer();
-                //}
-            }
-            __instance.InitializeControllerNavigation();
-        }
-
-        return false;
-    }
-    [HarmonyPatch(nameof(GameOptionsMenu.CreateSettings)), HarmonyPrefix]
-    private static bool CreateSettingsPrefix(GameOptionsMenu __instance)
-    {
-        Instance ??= __instance;
-        if (ModGameOptionsMenu.TabIndex < 3) return true;
-        var modTab = (TabGroup)(ModGameOptionsMenu.TabIndex - 3);
-
-        //float num = 0.713f;
-        float num = 2.0f;
-        const float pos_x = 0.952f;
-        const float pos_z = -2.0f;
-        for (int index = 0; index < OptionItem.AllOptions.Count; index++)
-        {
-            var option = OptionItem.AllOptions[index];
-            if (option.Tab != modTab) continue;
-
-            var enabled = !option.IsHiddenOn(Options.CurrentGameMode)
-                         && (option.Parent == null || (!option.Parent.IsHiddenOn(Options.CurrentGameMode) && option.Parent.GetBool()));
-
-            if (option is TextOptionItem)
-            {
-                CategoryHeaderMasked categoryHeaderMasked = UnityEngine.Object.Instantiate<CategoryHeaderMasked>(__instance.categoryHeaderOrigin, Vector3.zero, Quaternion.identity, __instance.settingsContainer);
-                categoryHeaderMasked.SetHeader(StringNames.RolesCategory, 20);
-                categoryHeaderMasked.Title.text = option.GetName();
-                categoryHeaderMasked.transform.localScale = Vector3.one * 0.63f;
-                categoryHeaderMasked.transform.localPosition = new Vector3(-0.903f, num, pos_z);
-                categoryHeaderMasked.transform.FindChild("HeaderText").GetComponent<TMPro.TextMeshPro>().fontStyle = TMPro.FontStyles.Bold;
-                categoryHeaderMasked.transform.FindChild("HeaderText").GetComponent<TMPro.TextMeshPro>().outlineWidth = 0.17f;
-                categoryHeaderMasked.gameObject.SetActive(enabled);
-                ModGameOptionsMenu.CategoryHeaderList.TryAdd(index, categoryHeaderMasked);
-
-                if (enabled) num -= 0.63f;
-            }
-            if (option.IsHeader)
-            {
-                num -= 0.1f;
-            }
-            if (option is TextOptionItem) continue;
-
-            var baseGameSetting = GetSetting(option);
-            if (baseGameSetting == null) continue;
-
-
-            OptionBehaviour optionBehaviour;
-
-            switch (baseGameSetting.Type)
-            {
-                case OptionTypes.Checkbox:
-                    {
-                        optionBehaviour = UnityEngine.Object.Instantiate<ToggleOption>(__instance.checkboxOrigin, Vector3.zero, Quaternion.identity, __instance.settingsContainer);
-                        optionBehaviour.transform.localPosition = new Vector3(pos_x, num, pos_z);
-
-                        OptionBehaviourSetSizeAndPosition(optionBehaviour, option, baseGameSetting.Type);
-
-                        optionBehaviour.SetClickMask(__instance.ButtonClickMask);
-                        optionBehaviour.SetUpFromData(baseGameSetting, 20);
-                        ModGameOptionsMenu.OptionList.TryAdd(optionBehaviour, index);
-                        //Logger.Info($"{option.Name}, {index}", "OptionList.TryAdd");
-                        break;
-                    }
-                case OptionTypes.String:
-                    {
-                        optionBehaviour = UnityEngine.Object.Instantiate<StringOption>(__instance.stringOptionOrigin, Vector3.zero, Quaternion.identity, __instance.settingsContainer);
-                        optionBehaviour.transform.localPosition = new Vector3(pos_x, num, pos_z);
-
-                        OptionBehaviourSetSizeAndPosition(optionBehaviour, option, baseGameSetting.Type);
-
-                        optionBehaviour.SetClickMask(__instance.ButtonClickMask);
-                        optionBehaviour.SetUpFromData(baseGameSetting, 20);
-                        ModGameOptionsMenu.OptionList.TryAdd(optionBehaviour, index);
-                        //Logger.Info($"{option.Name}, {index}", "OptionList.TryAdd");
-                        break;
-                    }
-                case OptionTypes.Float:
-                case OptionTypes.Int:
-                    {
-                        optionBehaviour = UnityEngine.Object.Instantiate<NumberOption>(__instance.numberOptionOrigin, Vector3.zero, Quaternion.identity, __instance.settingsContainer);
-                        optionBehaviour.transform.localPosition = new Vector3(pos_x, num, pos_z);
-
-                        OptionBehaviourSetSizeAndPosition(optionBehaviour, option, baseGameSetting.Type);
-
-                        optionBehaviour.SetClickMask(__instance.ButtonClickMask);
-                        optionBehaviour.SetUpFromData(baseGameSetting, 20);
-                        ModGameOptionsMenu.OptionList.TryAdd(optionBehaviour, index);
-                        //Logger.Info($"{option.Name}, {index}", "OptionList.TryAdd");
-                        break;
-                    }
-
-                //case OptionTypes.Player:
-                //    {
-                //        OptionBehaviour optionBehaviour = UnityEngine.Object.Instantiate<PlayerOption>(__instance.playerOptionOrigin, Vector3.zero, Quaternion.identity, __instance.settingsContainer);
-                //        break;
-                //    }
-                default:
-                    continue;
-
+                Object.Destroy(vanillaOption.gameObject);
             }
 
-            optionBehaviour.transform.localPosition = new Vector3(0.952f, num, -2f);
-
-
-            optionBehaviour.SetClickMask(__instance.ButtonClickMask);
-            optionBehaviour.SetUpFromData(baseGameSetting, 20);
-            ModGameOptionsMenu.OptionList.TryAdd(optionBehaviour, index);
-            ModGameOptionsMenu.BehaviourList.TryAdd(index, optionBehaviour);
-            optionBehaviour.gameObject.SetActive(enabled);
-            __instance.Children.Add(optionBehaviour);
-
-            if (enabled) num -= 0.45f;
-        }
-
-        __instance.ControllerSelectable.Clear();
-        foreach (var x in __instance.scrollBar.GetComponentsInChildren<UiElement>())
-            __instance.ControllerSelectable.Add(x);
-        __instance.scrollBar.SetYBoundsMax(-num - 1.65f);
-
-        return false;
-    }
-    private static void OptionBehaviourSetSizeAndPosition(OptionBehaviour optionBehaviour, OptionItem option, OptionTypes type)
-    {
-
-        Vector3 positionOffset = new(0f, 0f, 0f);
-        Vector3 scaleOffset = new(0f, 0f, 0f);
-        Color color = new(0.7f, 0.7f, 0.7f);
-        float sizeDelta_x = 5.7f;
-
-        if (option.Parent?.Parent?.Parent != null)
-        {
-            scaleOffset = new(-0.18f, 0, 0);
-            positionOffset = new(0.3f, 0f, 0f);
-            color = new(0.7f, 0.5f, 0.5f);
-            sizeDelta_x = 5.1f;
-        }
-        else if (option.Parent?.Parent != null)
-        {
-            scaleOffset = new(-0.12f, 0, 0);
-            positionOffset = new(0.2f, 0f, 0f);
-            color = new(0.5f, 0.5f, 0.7f);
-            sizeDelta_x = 5.3f;
-        }
-        else if (option.Parent != null)
-        {
-            scaleOffset = new(-0.05f, 0, 0);
-            positionOffset = new(0.1f, 0f, 0f);
-            color = new(0.5f, 0.7f, 0.5f);
-            sizeDelta_x = 5.5f;
-        }
-
-        optionBehaviour.transform.FindChild("LabelBackground").GetComponent<SpriteRenderer>().color = color;
-        optionBehaviour.transform.FindChild("LabelBackground").localScale += new Vector3(0.9f, -0.2f, 0f) + scaleOffset;
-        optionBehaviour.transform.FindChild("LabelBackground").localPosition += new Vector3(-0.4f, 0f, 0f) + positionOffset;
-
-        optionBehaviour.transform.FindChild("Title Text").localPosition += new Vector3(-0.4f, 0f, 0f) + positionOffset; ;
-        optionBehaviour.transform.FindChild("Title Text").GetComponent<RectTransform>().sizeDelta = new Vector2(sizeDelta_x, 0.37f);
-        optionBehaviour.transform.FindChild("Title Text").GetComponent<TMPro.TextMeshPro>().alignment = TMPro.TextAlignmentOptions.MidlineLeft;
-        optionBehaviour.transform.FindChild("Title Text").GetComponent<TMPro.TextMeshPro>().fontStyle = TMPro.FontStyles.Bold;
-        optionBehaviour.transform.FindChild("Title Text").GetComponent<TMPro.TextMeshPro>().outlineWidth = 0.17f;
-
-        switch (type)
-        {
-            case OptionTypes.Checkbox:
-                optionBehaviour.transform.FindChild("Toggle").localPosition = new Vector3(1.46f, -0.042f);
-                break;
-
-            case OptionTypes.String:
-                optionBehaviour.transform.FindChild("PlusButton").localPosition += new Vector3(option.IsFixValue ? 100f : 1.7f, option.IsFixValue ? 100f : 0f, option.IsFixValue ? 100f : 0f);
-                optionBehaviour.transform.FindChild("MinusButton").localPosition += new Vector3(option.IsFixValue ? 100f : 0.9f, option.IsFixValue ? 100f : 0f, option.IsFixValue ? 100f : 0f);
-                optionBehaviour.transform.FindChild("Value_TMP (1)").localPosition += new Vector3(1.3f, 0f, 0f);
-                optionBehaviour.transform.FindChild("Value_TMP (1)").GetComponent<RectTransform>().sizeDelta = new Vector2(2.3f, 0.4f);
-                goto default;
-
-            case OptionTypes.Float:
-            case OptionTypes.Int:
-                optionBehaviour.transform.FindChild("PlusButton").localPosition += new Vector3(option.IsFixValue ? 100f : 1.7f, option.IsFixValue ? 100f : 0f, option.IsFixValue ? 100f : 0f);
-                optionBehaviour.transform.FindChild("MinusButton").localPosition += new Vector3(option.IsFixValue ? 100f : 0.9f, option.IsFixValue ? 100f : 0f, option.IsFixValue ? 100f : 0f);
-                optionBehaviour.transform.FindChild("Value_TMP").localPosition += new Vector3(1.3f, 0f, 0f);
-                goto default;
-
-            default:// Number & String 共通
-                optionBehaviour.transform.FindChild("ValueBox").localScale += new Vector3(0.2f, 0f, 0f);
-                optionBehaviour.transform.FindChild("ValueBox").localPosition += new Vector3(1.3f, 0f, 0f);
-                break;
-        }
-    }
-
-    public static void UpdateSettings()
-    {
-        foreach (var optionBehaviour in ModGameOptionsMenu.OptionList.Keys)
-        {
-            try
+            // TONX設定ボタンのスペースを作るため，左側の要素を上に詰める
+            var gameSettingsLabel = __instance.transform.Find("GameSettingsLabel");
+            if (gameSettingsLabel)
             {
-                optionBehaviour.Initialize();
-                Instance?.ValueChanged(optionBehaviour);
+                gameSettingsLabel.localPosition += Vector3.up * 0.2f;
             }
-            catch { }
-        }
-    }
+            __instance.MenuDescriptionText.transform.parent.localPosition += Vector3.up * 0.4f;
+            __instance.GamePresetsButton.transform.parent.localPosition += Vector3.up * 0.5f;
 
-    [HarmonyPatch(nameof(GameOptionsMenu.ValueChanged)), HarmonyPrefix]
-    private static bool ValueChangedPrefix(GameOptionsMenu __instance, OptionBehaviour option)
-    {
-        if (__instance == null || ModGameOptionsMenu.TabIndex < 3) return true;
-
-        if (ModGameOptionsMenu.OptionList.TryGetValue(option, out var index))
-        {
-            var item = OptionItem.AllOptions[index];
-            if (item != null && item.Children.Count > 0) ReCreateSettings(__instance);
-        }
-        return false;
-    }
-    private static void ReCreateSettings(GameOptionsMenu __instance)
-    {
-        if (ModGameOptionsMenu.TabIndex < 3) return;
-        var modTab = (TabGroup)(ModGameOptionsMenu.TabIndex - 3);
-
-        //float num = 0.713f;
-        float num = 2.0f;
-        for (int index = 0; index < OptionItem.AllOptions.Count; index++)
-        {
-            var option = OptionItem.AllOptions[index];
-            if (option.Tab != modTab) continue;
-
-            var enabled = !option.IsHiddenOn(Options.CurrentGameMode)
-                         && (option.Parent == null || (!option.Parent.IsHiddenOn(Options.CurrentGameMode) && option.Parent.GetBool()));
-            if (option.IsHeader)
+            // TONX設定ボタン
+            tonxSettingsButton = Object.Instantiate(__instance.GameSettingsButton, __instance.GameSettingsButton.transform.parent);
+            tonxSettingsButton.name = "TONXSettingsButton";
+            tonxSettingsButton.transform.localPosition = __instance.RoleSettingsButton.transform.localPosition + (__instance.RoleSettingsButton.transform.localPosition - __instance.GameSettingsButton.transform.localPosition);
+            tonxSettingsButton.buttonText.DestroyTranslator();
+            tonxSettingsButton.buttonText.text = GetString("TONXSettingsButtonLabel");
+            var activeSprite = tonxSettingsButton.activeSprites.GetComponent<SpriteRenderer>();
+            var selectedSprite = tonxSettingsButton.selectedSprites.GetComponent<SpriteRenderer>();
+            activeSprite.color = selectedSprite.color = Main.UnityModColor;
+            tonxSettingsButton.OnClick.AddListener((Action)(() =>
             {
-                num -= 0.1f;
-            }
-            if (ModGameOptionsMenu.CategoryHeaderList.TryGetValue(index, out var categoryHeaderMasked))
-            {
-                categoryHeaderMasked.transform.localPosition = new Vector3(-0.903f, num, -2f);
-                categoryHeaderMasked.gameObject.SetActive(enabled);
-                if (enabled) num -= 0.63f;
-            }
-            if (ModGameOptionsMenu.BehaviourList.TryGetValue(index, out var optionBehaviour))
-            {
-                optionBehaviour.transform.localPosition = new Vector3(0.952f, num, -2f);
-                optionBehaviour.gameObject.SetActive(enabled);
-                if (enabled) num -= 0.45f;
-            }
-        }
+                __instance.ChangeTab(-1, false);  // バニラタブを閉じる
+                tonxSettingsTab.gameObject.SetActive(true);
+                __instance.MenuDescriptionText.text = GetString("TONXSettingsDescription");
+                tonxSettingsButton.SelectButton(true);
+            }));
 
-        __instance.ControllerSelectable.Clear();
-        foreach (var x in __instance.scrollBar.GetComponentsInChildren<UiElement>())
-            __instance.ControllerSelectable.Add(x);
-        __instance.scrollBar.SetYBoundsMax(-num - 1.65f);
-    }
+            // 各カテゴリの見出しを作成
+            SystemSettingsCategoryHeader = CreateCategoryHeader(__instance, tonxSettingsTab, "TabGroup.SystemSettings");
+            GameSettingsCategoryHeader = CreateCategoryHeader(__instance, tonxSettingsTab, "TabGroup.GameSettings");
+            ImpostorRoleCategoryHeader = CreateCategoryHeader(__instance, tonxSettingsTab, "TabGroup.ImpostorRoles");
+            CrewmateRoleCategoryHeader = CreateCategoryHeader(__instance, tonxSettingsTab, "TabGroup.CrewmateRoles");
+            NeutralRoleCategoryHeader = CreateCategoryHeader(__instance, tonxSettingsTab, "TabGroup.NeutralRoles");
+            AddOnCategoryHeader = CreateCategoryHeader(__instance, tonxSettingsTab, "TabGroup.Addons");
+            OtherRoleCategoryHeader = CreateCategoryHeader(__instance, tonxSettingsTab, "TabGroup.OtherRoles");
 
-    private static BaseGameSetting GetSetting(OptionItem item)
-    {
-        BaseGameSetting baseGameSetting = null;
-
-        if (item is BooleanOptionItem)
-        {
-            baseGameSetting = new CheckboxGameSetting
+            // 各設定スイッチを作成
+            var template = __instance.GameSettingsTab.stringOptionOrigin;
+            var scOptions = new Il2CppSystem.Collections.Generic.List<OptionBehaviour>();
+            foreach (var option in OptionItem.AllOptions)
             {
-                Type = OptionTypes.Checkbox,
-            };
-        }
-        else if (item is IntegerOptionItem)
-        {
-            IntegerOptionItem intItem = item as IntegerOptionItem;
-            baseGameSetting = new IntGameSetting
-            {
-                Type = OptionTypes.Int,
-                Value = intItem.GetInt(),
-                Increment = intItem.Rule.Step,
-                ValidRange = new IntRange(intItem.Rule.MinValue, intItem.Rule.MaxValue),
-                ZeroIsInfinity = false,
-                SuffixType = NumberSuffixes.Multiplier,
-                FormatString = string.Empty,
-            };
-        }
-        else if (item is FloatOptionItem)
-        {
-            FloatOptionItem floatItem = item as FloatOptionItem;
-            baseGameSetting = new FloatGameSetting
-            {
-                Type = OptionTypes.Float,
-                Value = floatItem.GetFloat(),
-                Increment = floatItem.Rule.Step,
-                ValidRange = new FloatRange(floatItem.Rule.MinValue, floatItem.Rule.MaxValue),
-                ZeroIsInfinity = false,
-                SuffixType = NumberSuffixes.Multiplier,
-                FormatString = string.Empty,
-            };
-        }
-        else if (item is StringOptionItem)
-        {
-            StringOptionItem stringItem = item as StringOptionItem;
-            baseGameSetting = new StringGameSetting
-            {
-                Type = OptionTypes.String,
-                Values = new StringNames[stringItem.Selections.Length], //ダミー
-                Index = stringItem.GetInt(),
-            };
-        }
-        else if (item is PresetOptionItem)
-        {
-            PresetOptionItem presetItem = item as PresetOptionItem;
-            baseGameSetting = new StringGameSetting
-            {
-                Type = OptionTypes.String,
-                Values = new StringNames[OptionItem.NumPresets], //ダミー
-                Index = presetItem.GetInt(),
-            };
-        }
-
-        if (baseGameSetting != null)
-        {
-            baseGameSetting.Title = StringNames.Accept; //ダミー
-        }
-
-        return baseGameSetting;
-    }
-}
-
-[HarmonyPatch(typeof(ToggleOption))]
-public static class ToggleOptionPatch
-{
-    [HarmonyPatch(nameof(ToggleOption.Initialize)), HarmonyPrefix]
-    private static bool InitializePrefix(ToggleOption __instance)
-    {
-        if (ModGameOptionsMenu.OptionList.TryGetValue(__instance, out var index))
-        {
-            var item = OptionItem.AllOptions[index];
-            //Logger.Info($"{item.Name}, {index}", "ToggleOption.Initialize.TryGetValue");
-            __instance.TitleText.text = item.GetName();
-            __instance.CheckMark.enabled = item.GetBool();
-            return false;
-        }
-        return true;
-    }
-    [HarmonyPatch(nameof(ToggleOption.UpdateValue)), HarmonyPrefix]
-    private static bool UpdateValuePrefix(ToggleOption __instance)
-    {
-        if (ModGameOptionsMenu.OptionList.TryGetValue(__instance, out var index))
-        {
-            var item = OptionItem.AllOptions[index];
-            //Logger.Info($"{item.Name}, {index}", "ToggleOption.UpdateValue.TryGetValue");
-            item.SetValue(__instance.GetBool() ? 1 : 0);
-            return false;
-        }
-        return true;
-    }
-}
-[HarmonyPatch(typeof(NumberOption))]
-public static class NumberOptionPatch
-{
-    [HarmonyPatch(nameof(NumberOption.Initialize)), HarmonyPrefix]
-    private static bool InitializePrefix(NumberOption __instance)
-    {
-        // バニラゲーム設定の拡張
-        switch (__instance.Title)
-        {
-            case StringNames.GameShortTasks:
-            case StringNames.GameLongTasks:
-            case StringNames.GameCommonTasks:
-                __instance.ValidRange = new FloatRange(0, 99);
-                break;
-            case StringNames.GameKillCooldown:
-                __instance.ValidRange = new FloatRange(0, 180);
-                break;
-            case StringNames.GameNumImpostors:
-                if (DebugModeManager.IsDebugMode)
+                if (option.OptionBehaviour == null)
                 {
-                    __instance.ValidRange.min = 0;
+                    var stringOption = Object.Instantiate(template, tonxSettingsTab.settingsContainer);
+                    scOptions.Add(stringOption);
+                    if (option is not TextOptionItem)
+                    {
+                        stringOption.SetClickMask(__instance.GameSettingsButton.ClickMask);
+                        stringOption.SetUpFromData(stringOption.data, GameOptionsMenu.MASK_LAYER);
+                    }
+                    stringOption.OnValueChanged = new Action<OptionBehaviour>((o) => { });
+                    stringOption.TitleText.text = option.Name;
+                    stringOption.Value = stringOption.oldValue = option.CurrentValue;
+                    stringOption.ValueText.text = option.GetString();
+                    stringOption.name = option.Name;
+
+                    // タイトルの枠をデカくする
+                    var indent = 0f;  // 親オプションがある場合枠の左を削ってインデントに見せる
+                    var parent = option.Parent;
+                    while (parent != null)
+                    {
+                        indent += 0.15f;
+                        parent = parent.Parent;
+                    }
+                    stringOption.LabelBackground.size += new Vector2(2f - indent * 2, 0f);
+                    stringOption.LabelBackground.transform.localPosition += new Vector3(-1f + indent, 0f, 0f);
+                    stringOption.TitleText.rectTransform.sizeDelta += new Vector2(2f - indent * 2, 0f);
+                    stringOption.TitleText.transform.localPosition += new Vector3(-1f + indent, 0f, 0f);
+
+                    option.OptionBehaviour = stringOption;
                 }
-                break;
-            default:
-                break;
-        }
-
-        if (ModGameOptionsMenu.OptionList.TryGetValue(__instance, out var index))
-        {
-            var item = OptionItem.AllOptions[index];
-            //Logger.Info($"{item.Name}, {index}", "NumberOption.Initialize.TryGetValue");
-            __instance.TitleText.text = item.GetName();
-            return false;
-        }
-        return true;
-    }
-    [HarmonyPatch(nameof(NumberOption.UpdateValue)), HarmonyPrefix]
-    private static bool UpdateValuePrefix(NumberOption __instance)
-    {
-        if (ModGameOptionsMenu.OptionList.TryGetValue(__instance, out var index))
-        {
-            var item = OptionItem.AllOptions[index];
-            //Logger.Info($"{item.Name}, {index}", "NumberOption.UpdateValue.TryGetValue");
-
-            if (item is IntegerOptionItem integerOptionItem)
-            {
-                integerOptionItem.SetValue(integerOptionItem.Rule.GetNearestIndex(__instance.GetInt()));
+                option.OptionBehaviour.gameObject.SetActive(true);
             }
-            else if (item is FloatOptionItem floatOptionItem)
+            tonxSettingsTab.Children = scOptions;
+            tonxSettingsTab.gameObject.SetActive(false);
+
+            // 各カテゴリまでスクロールするボタンを作成
+            var jumpButtonY = -0.45f;
+            var jumpToSysButton = CreateJumpToCategoryButton(__instance, tonxSettingsTab, "TONX.Resources.Images.TabIcon_SystemSettings.png", ref jumpButtonY, SystemSettingsCategoryHeader);
+            var jumpToGameButton = CreateJumpToCategoryButton(__instance, tonxSettingsTab, "TONX.Resources.Images.TabIcon_GameSettings.png", ref jumpButtonY, GameSettingsCategoryHeader);
+            var jumpToImpButton = CreateJumpToCategoryButton(__instance, tonxSettingsTab, "TONX.Resources.Images.TabIcon_ImpostorRoles.png", ref jumpButtonY, ImpostorRoleCategoryHeader);
+            var jumpToCrewButton = CreateJumpToCategoryButton(__instance, tonxSettingsTab, "TONX.Resources.Images.TabIcon_CrewmateRoles.png", ref jumpButtonY, CrewmateRoleCategoryHeader);
+            var jumpToNeutralButton = CreateJumpToCategoryButton(__instance, tonxSettingsTab, "TONX.Resources.Images.TabIcon_NeutralRoles.png", ref jumpButtonY, NeutralRoleCategoryHeader);
+            var jumpToAddOnButton = CreateJumpToCategoryButton(__instance, tonxSettingsTab, "TONX.Resources.Images.TabIcon_Addons.png", ref jumpButtonY, AddOnCategoryHeader);
+            var jumpToOtherButton = CreateJumpToCategoryButton(__instance, tonxSettingsTab, "TONX.Resources.Images.TabIcon_OtherRoles.png", ref jumpButtonY, OtherRoleCategoryHeader);
+        }
+        private static MapSelectButton CreateJumpToCategoryButton(GameSettingMenu __instance, GameOptionsMenu tonxTab, string resourcePath, ref float localY, CategoryHeaderMasked jumpTo)
+        {
+            var image = Utils.LoadSprite(resourcePath, 100f);
+            var button = Object.Instantiate(__instance.GameSettingsTab.MapPicker.MapButtonOrigin, Vector3.zero, Quaternion.identity, tonxTab.transform);
+            button.SetImage(image, GameOptionsMenu.MASK_LAYER);
+            button.transform.localPosition = new(7.1f, localY, -10f);
+            button.Button.ClickMask = tonxTab.ButtonClickMask;
+            button.Button.OnClick.AddListener((Action)(() =>
             {
-                floatOptionItem.SetValue(floatOptionItem.Rule.GetNearestIndex(__instance.GetFloat()));
+                tonxTab.scrollBar.velocity = Vector2.zero;  // ドラッグの慣性によるスクロールを止める
+                var relativePosition = tonxTab.scrollBar.transform.InverseTransformPoint(jumpTo.transform.position);  // Scrollerのローカル空間における座標に変換
+                var scrollAmount = CategoryJumpY - relativePosition.y;
+                tonxTab.scrollBar.Inner.localPosition = tonxTab.scrollBar.Inner.localPosition + Vector3.up * scrollAmount;  // 強制スクロール
+                tonxTab.scrollBar.ScrollRelative(Vector2.zero);  // スクロール範囲内に収め，スクロールバーを更新する
+            }));
+            button.Button.activeSprites.transform.GetChild(0).gameObject.SetActive(false);  // チェックボックスを消す
+            localY -= JumpButtonSpacing;
+            return button;
+        }
+        private const float JumpButtonSpacing = 0.6f;
+        // ジャンプしたカテゴリヘッダのScrollerとの相対Y座標がこの値になる
+        private const float CategoryJumpY = 2f;
+        private static CategoryHeaderMasked CreateCategoryHeader(GameSettingMenu __instance, GameOptionsMenu tonxTab, string translationKey)
+        {
+            var categoryHeader = Object.Instantiate(__instance.GameSettingsTab.categoryHeaderOrigin, Vector3.zero, Quaternion.identity, tonxTab.settingsContainer);
+            categoryHeader.name = translationKey;
+            categoryHeader.Title.text = GetString(translationKey);
+            var maskLayer = GameOptionsMenu.MASK_LAYER;
+            categoryHeader.Background.material.SetInt(PlayerMaterial.MaskLayer, maskLayer);
+            if (categoryHeader.Divider != null)
+            {
+                categoryHeader.Divider.material.SetInt(PlayerMaterial.MaskLayer, maskLayer);
             }
-
-            return false;
+            categoryHeader.Title.fontMaterial.SetFloat("_StencilComp", 3f);
+            categoryHeader.Title.fontMaterial.SetFloat("_Stencil", (float)maskLayer);
+            categoryHeader.transform.localScale = Vector3.one * GameOptionsMenu.HEADER_SCALE;
+            return categoryHeader;
         }
-        return true;
-    }
-    [HarmonyPatch(nameof(NumberOption.AdjustButtonsActiveState)), HarmonyPrefix]
-    private static bool AdjustButtonsActiveStatePrefix(NumberOption __instance)
-    {
-        return false;
-    }
-    [HarmonyPatch(nameof(NumberOption.FixedUpdate)), HarmonyPrefix]
-    private static bool FixedUpdatePrefix(NumberOption __instance)
-    {
-        if (ModGameOptionsMenu.OptionList.TryGetValue(__instance, out var index))
-        {
-            var item = OptionItem.AllOptions[index];
-            //Logger.Info($"{item.Name}, {index}", "NumberOption.FixedUpdate.TryGetValue");
 
-            if (__instance.oldValue != __instance.Value)
+        // 初めてロール設定を表示したときに発生する例外(バニラバグ)の影響を回避するためPrefix
+        [HarmonyPatch(nameof(GameSettingMenu.ChangeTab)), HarmonyPrefix]
+        public static void ChangeTabPrefix(bool previewOnly)
+        {
+            if (!previewOnly)
             {
-                __instance.oldValue = __instance.Value;
-                __instance.ValueText.text = GetValueString(__instance, __instance.Value, item);
-            }
-            return false;
-        }
-        return true;
-    }
-    public static string GetValueString(NumberOption __instance, float value, OptionItem item)
-    {
-        if (__instance.ZeroIsInfinity && Mathf.Abs(value) < 0.0001f) return "<b>∞</b>";
-        if (item == null) return value.ToString(__instance.FormatString);
-        return item.GetString();
-    }
-    [HarmonyPatch(nameof(NumberOption.Increase)), HarmonyPrefix]
-    public static bool IncreasePrefix(NumberOption __instance)
-    {
-        // Shift押しながらの値更新
-        if (Input.GetKey(KeyCode.LeftShift))
-        {
-            __instance.Value = __instance.Value + (__instance.Increment * 5);
-            // 超えている場合は最大値
-            if (__instance.Value > __instance.ValidRange.max)
-            {
-                __instance.Value = __instance.ValidRange.max;
-            }
-            __instance.UpdateValue();
-            __instance.OnValueChanged.Invoke(__instance);
-            return false;
-        }
-
-        if (__instance.Value == __instance.ValidRange.max)
-        {
-            __instance.Value = __instance.ValidRange.min;
-            __instance.UpdateValue();
-            __instance.OnValueChanged.Invoke(__instance);
-            return false;
-        }
-        return true;
-    }
-    [HarmonyPatch(nameof(NumberOption.Decrease)), HarmonyPrefix]
-    public static bool DecreasePrefix(NumberOption __instance)
-    {
-        // Shift押しながらの値更新
-        if (Input.GetKey(KeyCode.LeftShift))
-        {
-            __instance.Value = __instance.Value - (__instance.Increment * 5);
-            // 超えている場合は最小値
-            if (__instance.Value < __instance.ValidRange.min)
-            {
-                __instance.Value = __instance.ValidRange.min;
-            }
-            __instance.UpdateValue();
-            __instance.OnValueChanged.Invoke(__instance);
-            return false;
-        }
-
-        if (__instance.Value == __instance.ValidRange.min)
-        {
-            __instance.Value = __instance.ValidRange.max;
-            __instance.UpdateValue();
-            __instance.OnValueChanged.Invoke(__instance);
-            return false;
-        }
-        return true;
-    }
-}
-[HarmonyPatch(typeof(StringOption))]
-public static class StringOptionPatch
-{
-    [HarmonyPatch(nameof(StringOption.Initialize)), HarmonyPrefix]
-    private static bool InitializePrefix(StringOption __instance)
-    {
-        if (ModGameOptionsMenu.OptionList.TryGetValue(__instance, out var index))
-        {
-            var item = OptionItem.AllOptions[index];
-            //Logger.Info($"{item.Name}, {index}", "StringOption.Initialize.TryAdd");
-            __instance.TitleText.text = item.GetName();
-            return false;
-        }
-        return true;
-    }
-    [HarmonyPatch(nameof(StringOption.UpdateValue)), HarmonyPrefix]
-    private static bool UpdateValuePrefix(StringOption __instance)
-    {
-        if (ModGameOptionsMenu.OptionList.TryGetValue(__instance, out var index))
-        {
-            var item = OptionItem.AllOptions[index];
-            Logger.Info($"{item.Name}, {index}", "StringOption.UpdateValue.TryAdd");
-
-            item.SetValue(__instance.GetInt());
-            if (item is PresetOptionItem || item.Name == "GameMode")
-            {
-                GameOptionsMenuPatch.UpdateSettings();
-            }
-            return false;
-        }
-        return true;
-    }
-    [HarmonyPatch(nameof(StringOption.AdjustButtonsActiveState)), HarmonyPrefix]
-    private static bool AdjustButtonsActiveStatePrefix(StringOption __instance)
-    {
-        return false;
-    }
-    [HarmonyPatch(nameof(StringOption.FixedUpdate)), HarmonyPrefix]
-    private static bool FixedUpdatePrefix(StringOption __instance)
-    {
-        if (ModGameOptionsMenu.OptionList.TryGetValue(__instance, out var index))
-        {
-            var item = OptionItem.AllOptions[index];
-
-            if (item is StringOptionItem stringOptionItem)
-            {
-                if (__instance.oldValue != __instance.Value)
+                if (tonxSettingsTab)
                 {
-                    __instance.oldValue = __instance.Value;
-                    __instance.ValueText.text = stringOptionItem.GetString();
+                    tonxSettingsTab.gameObject.SetActive(false);
+                }
+                if (tonxSettingsButton)
+                {
+                    tonxSettingsButton.SelectButton(false);
                 }
             }
-            if (item is PresetOptionItem presetOptionItem)
+        }
+
+        public const string TONXMenuName = "TownOfNextTab";
+    }
+
+    [HarmonyPatch(typeof(GameOptionsMenu), nameof(GameOptionsMenu.Initialize))]
+    public static class GameOptionsMenuInitializePatch
+    {
+        public static void Postfix(GameOptionsMenu __instance)
+        {
+            foreach (var ob in __instance.Children)
             {
-                if (__instance.oldValue != __instance.Value)
+                switch (ob.Title)
                 {
-                    __instance.oldValue = __instance.Value;
-                    __instance.ValueText.text = presetOptionItem.GetString();
+                    case StringNames.GameShortTasks:
+                    case StringNames.GameLongTasks:
+                    case StringNames.GameCommonTasks:
+                        ob.Cast<NumberOption>().ValidRange = new FloatRange(0, 99);
+                        break;
+                    case StringNames.GameKillCooldown:
+                        ob.Cast<NumberOption>().ValidRange = new FloatRange(0, 180);
+                        break;
+                    case StringNames.GameNumImpostors:
+                        if (DebugModeManager.IsDebugMode)
+                        {
+                            ob.Cast<NumberOption>().ValidRange.min = 0;
+                        }
+                        break;
+                    default:
+                        break;
                 }
             }
-            return false;
         }
-        return true;
     }
-    [HarmonyPatch(nameof(StringOption.Increase)), HarmonyPrefix]
-    public static bool IncreasePrefix(StringOption __instance)
+
+    [HarmonyPatch(typeof(GameOptionsMenu), nameof(GameOptionsMenu.Update))]
+    public class GameOptionsMenuUpdatePatch
     {
-        // Shift押しながらの値更新
-        if (Input.GetKey(KeyCode.LeftShift))
+        private static float _timer = 1f;
+
+        public static void Postfix(GameOptionsMenu __instance)
         {
-            __instance.Value = __instance.Value + 5;
-            // 超えている場合は最大値
-            if (__instance.Value > __instance.Values.Length - 1)
+            if (__instance.name != GameSettingMenuPatch.TONXMenuName) return;
+
+            _timer += Time.deltaTime;
+            if (_timer < 0.1f) return;
+            _timer = 0f;
+
+            var offset = 2.7f;
+            var isOdd = true;
+
+            UpdateCategoryHeader(GameSettingMenuPatch.SystemSettingsCategoryHeader, ref offset);
+            foreach (var option in OptionItem.SystemSettingsOptions)
             {
-                __instance.Value = __instance.Values.Length - 1;
+                UpdateOption(ref isOdd, option, ref offset);
             }
-            __instance.UpdateValue();
-            __instance.OnValueChanged.Invoke(__instance);
-            return false;
+            UpdateCategoryHeader(GameSettingMenuPatch.GameSettingsCategoryHeader, ref offset);
+            foreach (var option in OptionItem.GameSettingsOptions)
+            {
+                UpdateOption(ref isOdd, option, ref offset);
+            }
+            UpdateCategoryHeader(GameSettingMenuPatch.ImpostorRoleCategoryHeader, ref offset);
+            foreach (var option in OptionItem.ImpostorRoleOptions)
+            {
+                UpdateOption(ref isOdd, option, ref offset);
+            }
+            UpdateCategoryHeader(GameSettingMenuPatch.CrewmateRoleCategoryHeader, ref offset);
+            foreach (var option in OptionItem.CrewmateRoleOptions)
+            {
+                UpdateOption(ref isOdd, option, ref offset);
+            }
+            UpdateCategoryHeader(GameSettingMenuPatch.NeutralRoleCategoryHeader, ref offset);
+            foreach (var option in OptionItem.NeutralRoleOptions)
+            {
+                UpdateOption(ref isOdd, option, ref offset);
+            }
+            UpdateCategoryHeader(GameSettingMenuPatch.AddOnCategoryHeader, ref offset);
+            foreach (var option in OptionItem.AddOnOptions)
+            {
+                UpdateOption(ref isOdd, option, ref offset);
+            }
+            UpdateCategoryHeader(GameSettingMenuPatch.OtherRoleCategoryHeader, ref offset);
+            foreach (var option in OptionItem.OtherRoleOptions)
+            {
+                UpdateOption(ref isOdd, option, ref offset);
+            }
+
+            __instance.scrollBar.ContentYBounds.max = (-offset) - 1.5f;
+        }
+        private static void UpdateCategoryHeader(CategoryHeaderMasked categoryHeader, ref float offset)
+        {
+            offset -= GameOptionsMenu.HEADER_HEIGHT;
+            categoryHeader.transform.localPosition = new(GameOptionsMenu.HEADER_X, offset, -2f);
+        }
+        private static void UpdateOption(ref bool isOdd, OptionItem item, ref float offset)
+        {
+            if (item?.OptionBehaviour == null || item.OptionBehaviour.gameObject == null) return;
+
+            var enabled = true;
+            var parent = item.Parent;
+
+            // 親オプションの値を見て表示するか決める
+            enabled = AmongUsClient.Instance.AmHost && !item.IsHiddenOn(Options.CurrentGameMode);
+            var stringOption = item.OptionBehaviour;
+            while (parent != null && enabled)
+            {
+                enabled = parent.GetBool();
+                parent = parent.Parent;
+            }
+            
+            item.OptionBehaviour.gameObject.SetActive(enabled);
+            if (item is TextOptionItem)
+            {
+                foreach (var button in stringOption.GetComponentsInChildren<PassiveButton>())
+                {
+                    button.gameObject.SetActive(false);
+                }
+                stringOption.LabelBackground.gameObject.SetActive(false);
+                stringOption.ValueText.gameObject.SetActive(false);
+                // stringOption.TitleText.gameObject.SetActive(true);
+
+            }
+
+            if (enabled)
+            {
+                // 見やすさのため交互に色を変える  
+                stringOption.LabelBackground.color = item is IRoleOptionItem roleOption ? roleOption.RoleColor : (isOdd ? Color.cyan : Color.white);
+
+                offset -= GameOptionsMenu.SPACING_Y;
+                if (item.IsHeader)
+                {
+                    // IsHeaderなら隙間を広くする
+                    offset -= HeaderSpacingY;
+                }
+                item.OptionBehaviour.transform.localPosition = new Vector3(
+                    GameOptionsMenu.START_POS_X,
+                    offset,
+                    -2f);
+
+                isOdd = !isOdd;
+            }
         }
 
-        if (__instance.Value == __instance.Values.Length - 1)
-        {
-            __instance.Value = 0;
-            __instance.UpdateValue();
-            __instance.OnValueChanged.Invoke(__instance);
-            return false;
-        }
-        return true;
+        private const float HeaderSpacingY = 0.2f;
     }
-    [HarmonyPatch(nameof(StringOption.Decrease)), HarmonyPrefix]
-    public static bool DecreasePrefix(StringOption __instance)
-    {
-        // Shift押しながらの値更新
-        if (Input.GetKey(KeyCode.LeftShift))
-        {
-            __instance.Value = __instance.Value - 5;
-            // 超えている場合は最小値
-            if (__instance.Value < 0)
-            {
-                __instance.Value = 0;
-            }
-            __instance.UpdateValue();
-            __instance.OnValueChanged.Invoke(__instance);
-            return false;
-        }
 
-        if (__instance.Value == 0)
+    [HarmonyPatch(typeof(StringOption), nameof(StringOption.Initialize))]
+    public class StringOptionInitializePatch
+    {
+        public static bool Prefix(StringOption __instance)
         {
-            __instance.Value = __instance.Values.Length - 1;
-            __instance.UpdateValue();
-            __instance.OnValueChanged.Invoke(__instance);
+            var option = OptionItem.AllOptions.FirstOrDefault(opt => opt.OptionBehaviour == __instance);
+            if (option == null) return true;
+
+            if (option is TextOptionItem) option.OptionBehaviour.ValueText.gameObject.SetActive(false);
+            __instance.OnValueChanged = new Action<OptionBehaviour>((o) => { });
+            __instance.TitleText.text = option.GetName(option is RoleSpawnChanceOptionItem);
+            __instance.Value = __instance.oldValue = option.CurrentValue;
+            __instance.ValueText.text = option.GetString();
+
             return false;
         }
-        return true;
+    }
+
+    [HarmonyPatch(typeof(StringOption), nameof(StringOption.Increase))]
+    public class StringOptionIncreasePatch
+    {
+        public static bool Prefix(StringOption __instance)
+        {
+            var option = OptionItem.AllOptions.FirstOrDefault(opt => opt.OptionBehaviour == __instance);
+            if (option == null) return true;
+
+            option.SetValue(option.CurrentValue + (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 5 : 1));
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(StringOption), nameof(StringOption.Decrease))]
+    public class StringOptionDecreasePatch
+    {
+        public static bool Prefix(StringOption __instance)
+        {
+            var option = OptionItem.AllOptions.FirstOrDefault(opt => opt.OptionBehaviour == __instance);
+            if (option == null) return true;
+
+            option.SetValue(option.CurrentValue - (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 5 : 1));
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.RpcSyncSettings))]
+    public class RpcSyncSettingsPatch
+    {
+        public static void Postfix()
+        {
+            OptionItem.SyncAllOptions();
+        }
+    }
+    [HarmonyPatch(typeof(RolesSettingsMenu), nameof(RolesSettingsMenu.InitialSetup))]
+    public static class RolesSettingsMenuPatch
+    {
+        public static void Postfix(RolesSettingsMenu __instance)
+        {
+            foreach (var ob in __instance.advancedSettingChildren)
+            {
+                switch (ob.Title)
+                {
+                    case StringNames.EngineerCooldown:
+                        ob.Cast<NumberOption>().ValidRange = new FloatRange(0, 180);
+                        break;
+                    case StringNames.ShapeshifterCooldown:
+                        ob.Cast<NumberOption>().ValidRange = new FloatRange(0, 180);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
     }
 }

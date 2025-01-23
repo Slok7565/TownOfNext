@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using TONX.Modules;
+using TONX.Modules.OptionItems;
 using TONX.Roles.AddOns.Common;
 using TONX.Roles.AddOns.Crewmate;
 using TONX.Roles.AddOns.Impostor;
@@ -470,7 +471,8 @@ public static class Options
         // 预设//9人以上部屋で落ちる現象の対策
         FixSpawnPacketSize = BooleanOptionItem.Create(1_000_200, "FixSpawnPacketSize", false, TabGroup.SystemSettings, true)
             .SetColor(new Color32(255, 255, 0, 255))
-            .SetGameMode(CustomGameMode.All);
+            .SetGameMode(CustomGameMode.All)
+            .SetHeader(true);
 
         _ = PresetOptionItem.Create(0, TabGroup.SystemSettings)
             .SetColor(new Color32(255, 235, 4, byte.MaxValue))
@@ -491,7 +493,7 @@ public static class Options
         // 各职业的总体设定
         ImpKnowAlliesRole = BooleanOptionItem.Create(1_000_001, "ImpKnowAlliesRole", true, TabGroup.ImpostorRoles, false)
             .SetGameMode(CustomGameMode.Standard)
-           .SetHeader(true);
+            .SetHeader(true);
         ImpKnowWhosMadmate = BooleanOptionItem.Create(1_000_002, "ImpKnowWhosMadmate", false, TabGroup.ImpostorRoles, false)
             .SetGameMode(CustomGameMode.Standard);
         ImpCanKillMadmate = BooleanOptionItem.Create(1_000_003, "ImpCanKillMadmate", true, TabGroup.ImpostorRoles, false)
@@ -602,7 +604,7 @@ public static class Options
             .SetColor(Utils.GetCustomRoleTypeColor(CustomRoleTypes.Addon));
 
         #region Options of Lover
-        SetupRoleOptions(80100, TabGroup.Addons, CustomRoles.Lovers, assignCountRule: new(2, 2, 2));
+        SetupRoleOptions(80100, TabGroup.Addons, CustomRoles.Lovers, Utils.GetRoleColor(CustomRoles.Lovers), assignCountRule: new(2, 2, 2));
         LoverKnowRoles = BooleanOptionItem.Create(80100 + 4, "LoverKnowRoles", true, TabGroup.Addons, false).SetParent(Options.CustomRoleSpawnChances[CustomRoles.Lovers])
             .SetGameMode(CustomGameMode.Standard);
         LoverSuicide = BooleanOptionItem.Create(80100 + 3, "LoverSuicide", true, TabGroup.Addons, false).SetParent(Options.CustomRoleSpawnChances[CustomRoles.Lovers])
@@ -1070,9 +1072,10 @@ public static class Options
         => SetupAddonOptions(id, tab, role, Rates, true, customGameMode);
     public static void SetupAddonOptions(int id, TabGroup tab, CustomRoles role, string[] selections, bool canSetNum, CustomGameMode customGameMode = CustomGameMode.Standard)
     {
-        var spawnOption = StringOptionItem.Create(id, role.ToString(), selections, 0, tab, false).SetColor(Utils.GetRoleColor(role))
-                .SetHeader(true)
-                .SetGameMode(customGameMode) as StringOptionItem;
+        var spawnOption = new RoleSpawnChanceOptionItem(id, role.ToString(), 0, tab, false, selections, role, Utils.GetRoleColor(role))
+            .SetColor(Utils.GetRoleColor(role))
+            .SetHeader(true)
+            .SetGameMode(customGameMode) as StringOptionItem;
         var countOption = IntegerOptionItem.Create(id + 1, "Maximum", new(1, canSetNum ? 15 : 1, 1), 1, tab, false).SetParent(spawnOption)
             .SetValueFormat(OptionFormat.Players)
             .SetHidden(!canSetNum)
@@ -1081,16 +1084,16 @@ public static class Options
         CustomRoleSpawnChances.Add(role, spawnOption);
         CustomRoleCounts.Add(role, countOption);
     }
-    public static void SetupRoleOptions(SimpleRoleInfo info) =>
-        SetupRoleOptions(info.ConfigId, info.Tab, info.RoleName);
-    public static void SetupRoleOptions(int id, TabGroup tab, CustomRoles role, IntegerValueRule assignCountRule = null, CustomGameMode customGameMode = CustomGameMode.Standard)
+    public static void SetupRoleOptions(SimpleRoleInfo info)
+        => SetupRoleOptions(info.ConfigId, info.Tab, info.RoleName, info.RoleColor);
+    public static void SetupRoleOptions(int id, TabGroup tab, CustomRoles role, Color roleColor, IntegerValueRule assignCountRule = null, CustomGameMode customGameMode = CustomGameMode.Standard)
     {
         if (role.IsVanilla()) return;
         assignCountRule ??= role.GetRoleInfo().AssignCountRule ?? new(1, 15, 1);
 
         bool broken = role.GetRoleInfo()?.Broken ?? false;
 
-        var spawnOption = StringOptionItem.Create(id, role.ToString(), RoleSpwanModes, 0, tab, false)
+        var spawnOption = new RoleSpawnChanceOptionItem(id, role.ToString(), 0, tab, false, RoleSpwanModes, role, roleColor)
             .SetColor(broken ? Palette.DisabledGrey : Utils.GetRoleColor(role))
             .SetHeader(true)
             .SetAddDesc(broken ? Utils.ColorString(Palette.DisabledGrey, Translator.GetString("RoleBroken")) : "")
@@ -1107,9 +1110,10 @@ public static class Options
     private static void SetupMadmateRoleOptionsToggle(int id, CustomGameMode customGameMode = CustomGameMode.Standard)
     {
         var role = CustomRoles.Madmate;
-        var spawnOption = StringOptionItem.Create(id, role.ToString(), RoleSpwanToggle, 0, TabGroup.Addons, false).SetColor(Utils.GetRoleColor(role))
-                .SetHeader(true)
-                .SetGameMode(customGameMode) as StringOptionItem;
+        var spawnOption = new RoleSpawnChanceOptionItem(id, role.ToString(), 0, TabGroup.Addons, false, RoleSpwanToggle, role, Utils.GetRoleColor(role))
+            .SetColor(Utils.GetRoleColor(role))
+            .SetHeader(true)
+            .SetGameMode(customGameMode) as StringOptionItem;
 
         var countOption = IntegerOptionItem.Create(id + 1, "Maximum", new(1, 15, 1), 1, TabGroup.Addons, false).SetParent(spawnOption)
             .SetGameMode(customGameMode);

@@ -72,27 +72,27 @@ public class AddOnsAssignData
 
         if (assignImpostor)
         {
-            ImpostorMaximum = IntegerOptionItem.Create(idStart++, "RoleTypesMaximum", new(0, 3, 1), 1, TabGroup.Addons, false)
+            ImpostorMaximum = IntegerOptionItem.Create(idStart++, "RoleTypesMaximum", new(0, 3, 1), 1, tab, false)
                 .SetParent(CustomRoleSpawnChances[role])
                 .SetValueFormat(OptionFormat.Players);
             ImpostorMaximum.ReplacementDictionary = new Dictionary<string, string> { { "%roleTypes%", Utils.ColorString(new Color32(247, 70, 49, byte.MaxValue), GetString("TeamImpostor")) } };
-            ImpostorFixedRole = BooleanOptionItem.Create(idStart++, "FixedRole", false, TabGroup.Addons, false)
+            ImpostorFixedRole = BooleanOptionItem.Create(idStart++, "FixedRole", false, tab, false)
                 .SetParent(ImpostorMaximum);
             var impostorStringArray = ImpostorRoles.Select(role => role.ToString()).ToArray();
-            ImpostorAssignTarget = StringOptionItem.Create(idStart++, "Role", impostorStringArray, 0, TabGroup.Addons, false)
+            ImpostorAssignTarget = StringOptionItem.Create(idStart++, "Role", impostorStringArray, 0, tab, false)
                 .SetParent(ImpostorFixedRole);
         }
 
         if (assignNeutral)
         {
-            NeutralMaximum = IntegerOptionItem.Create(idStart++, "RoleTypesMaximum", new(0, 15, 1), 1, TabGroup.Addons, false)
+            NeutralMaximum = IntegerOptionItem.Create(idStart++, "RoleTypesMaximum", new(0, 15, 1), 1, tab, false)
                 .SetParent(CustomRoleSpawnChances[role])
                 .SetValueFormat(OptionFormat.Players);
             NeutralMaximum.ReplacementDictionary = new Dictionary<string, string> { { "%roleTypes%", Utils.ColorString(new Color32(255, 171, 27, byte.MaxValue), GetString("TeamNeutral")) } };
-            NeutralFixedRole = BooleanOptionItem.Create(idStart++, "FixedRole", false, TabGroup.Addons, false)
+            NeutralFixedRole = BooleanOptionItem.Create(idStart++, "FixedRole", false, tab, false)
                 .SetParent(NeutralMaximum);
             var neutralStringsArray = NeutralRoles.Select(role => role.ToString()).ToArray();
-            NeutralAssignTarget = StringOptionItem.Create(idStart++, "Role", neutralStringsArray, 0, TabGroup.Addons, false)
+            NeutralAssignTarget = StringOptionItem.Create(idStart++, "Role", neutralStringsArray, 0, tab, false)
                 .SetParent(NeutralFixedRole);
         }
 
