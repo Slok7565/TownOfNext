@@ -74,6 +74,7 @@ namespace TONX
         public List<OptionItem> Children;
 
         public StringOption OptionBehaviour;
+        public ViewSettingsInfoPanel ViewOptionBehaviour;
 
         // イベント
         // eventキーワードにより、クラス外からのこのフィールドに対する以下の操作は禁止されます。

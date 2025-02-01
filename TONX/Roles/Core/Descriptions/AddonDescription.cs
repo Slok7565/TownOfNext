@@ -20,7 +20,7 @@ public static class AddonDescription
             builder.AppendFormat("<size={0}>{1}\n", BodySize, Translator.GetString($"{subRole}InfoLong"));
             // 职业设定
             if (Options.CustomRoleSpawnChances.TryGetValue(subRole, out var opt))
-            Utils.ShowChildrenSettings(opt, ref builder, forChat: true);
+                Utils.ShowChildrenSettings(opt, ref builder, forChat: true);
         }
 
         return builder.ToString();

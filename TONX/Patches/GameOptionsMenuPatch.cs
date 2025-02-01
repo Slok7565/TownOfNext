@@ -52,7 +52,7 @@ namespace TONX
                 }
 
                 var SettingsButton = Object.Instantiate(__instance.GameSettingsButton, __instance.GameSettingsButton.transform.parent);
-                SettingsButton.name = "Button" + tab.ToString();
+                SettingsButton.name = tab.ToString() + " BUTTON";
                 SettingsButton.transform.localPosition -= ((int)tab < 2) ? offset_left : offset_right;
                 SettingsButton.buttonText.DestroyTranslator();
                 SettingsButton.buttonText.text = GetString($"TabGroup.{tab}");
@@ -250,7 +250,7 @@ namespace TONX
                         continue;
                     }
                     if (isFirst) isFirst = false;
-                    UpdateOption(ref isOdd, option, ref offset, tab);
+                    UpdateOption(ref isOdd, option, ref offset);
                 }
 
                 __instance.scrollBar.ContentYBounds.max = (-offset) - 1.5f;
@@ -261,7 +261,7 @@ namespace TONX
             offset -= GameOptionsMenu.HEADER_HEIGHT;
             categoryHeader.transform.localPosition = new(GameOptionsMenu.HEADER_X, offset, -2f);
         }
-        private static void UpdateOption(ref bool isOdd, OptionItem item, ref float offset, object tab)
+        private static void UpdateOption(ref bool isOdd, OptionItem item, ref float offset)
         {
             if (item?.OptionBehaviour == null || item.OptionBehaviour.gameObject == null) return;
 
