@@ -50,7 +50,7 @@ namespace TONX
                 SettingsButton.OnClick.RemoveAllListeners();
                 SettingsButton.OnClick.AddListener((Action)(() => 
                 {
-                    __instance.ChangeTab((StringNames)((int)tab+3551));
+                    __instance.ChangeTab((StringNames)((int)tab + 3551));
                     SettingsButton.SelectButton(true);
                 }));
                 SettingsButton.OnMouseOut.RemoveAllListeners();
@@ -85,7 +85,7 @@ namespace TONX
             var template = __instance.infoPanelOrigin;
             foreach (var option in OptionItem.AllOptions)
             {
-                if ((int)option.Tab != ((int)__instance.currentTab-3551)) continue;  
+                if ((int)option.Tab != ((int)__instance.currentTab - 3551)) continue;  
                 
                 if (option.IsText)
                 {
@@ -146,7 +146,7 @@ namespace TONX
 
             foreach (var option in OptionItem.AllOptions)
             {
-                if ((int)option.Tab != ((int)__instance.currentTab-3551)) continue; 
+                if ((int)option.Tab != ((int)__instance.currentTab - 3551)) continue; 
                 if (option.IsText)
                 {
                     if (isFirst)
