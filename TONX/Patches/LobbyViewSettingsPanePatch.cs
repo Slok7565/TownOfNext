@@ -27,6 +27,7 @@ namespace TONX
         [HarmonyPatch(nameof(LobbyViewSettingsPane.Awake)), HarmonyPostfix]
         public static void AwakePostfix(LobbyViewSettingsPane __instance)
         {
+            // 调整原版按钮
             var OverviewTab = GameObject.Find("OverviewTab");
             OverviewTab.transform.localScale = buttonSize;
             OverviewTab.transform.localPosition = buttonPosition + new Vector3(0f, 0.18f, 0f);
@@ -34,6 +35,7 @@ namespace TONX
             RolesTab.transform.localScale = buttonSize;
             RolesTab.transform.localPosition = buttonPosition + new Vector3(1.6f, 0.18f, 0f);
 
+            // 模组按钮
             tonxSettingsButton = new List<PassiveButton>();
             foreach (var tab in Enum.GetValues(typeof(TabGroup)))
             {
@@ -71,12 +73,14 @@ namespace TONX
 
         public static void CreateOptions(LobbyViewSettingsPane __instance)
         {
+            // 删除原版gameobject
             foreach (var vanillaOption in __instance.settingsInfo)
             {
                 Object.Destroy(vanillaOption.gameObject);
             }
             __instance.settingsInfo.Clear();
 
+            // 模组设置
             CategoryHeaders = new List<CategoryHeaderMasked>();
             var template = __instance.infoPanelOrigin;
             foreach (var option in OptionItem.AllOptions)
@@ -169,6 +173,7 @@ namespace TONX
         private static void UpdateCategoryHeader(CategoryHeaderMasked categoryHeader, ref float offset)
         {
             var enabled = true;
+            // 检测是否隐藏设置
             enabled = (!Options.HideGameSettings.GetBool() || AmongUsClient.Instance.AmHost) && GameStates.IsModHost;
             categoryHeader.gameObject.SetActive(enabled);
             if (enabled)
@@ -185,6 +190,7 @@ namespace TONX
             var enabled = true;
             var parent = option.Parent;
 
+            // 检测是否隐藏设置
             enabled = !option.IsHiddenOn(Options.CurrentGameMode) && (!Options.HideGameSettings.GetBool() || AmongUsClient.Instance.AmHost) && GameStates.IsModHost;
             var infoPanelOption = option.ViewOptionBehaviour;
             while (parent != null && enabled)
