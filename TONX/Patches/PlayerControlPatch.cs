@@ -300,14 +300,6 @@ class ShapeshiftPatch
 
         if (!shapeshifting) Camouflage.RpcSetSkin(__instance);
 
-        if (shapeshifting)
-        {
-            _ = new LateTask(() =>
-            {
-                Utils.NotifyRoles(SpecifySeer: shapeshifter, NoCache: true);
-            },
-            1.2f, "ShapeShiftNotify");
-        }
         //変身解除のタイミングがずれて名前が直せなかった時のために強制書き換え
         if (!shapeshifting)
         {
@@ -382,8 +374,6 @@ class ReportDeadBodyPatch
         Main.AllPlayerControls
                     .Where(pc => Main.CheckShapeshift.ContainsKey(pc.PlayerId))
                     .Do(pc => Camouflage.RpcSetSkin(pc, RevertToDefault: true));
-        Main.AllPlayerControls
-                    .Do(pc => Camouflage.RpcSetSkin(pc, ForceRevert: true, RevertToDefault: true)); // 会议开始前强制关闭小黑人
         MeetingTimeManager.OnReportDeadBody();
 
         Utils.NotifyRoles(isForMeeting: true, NoCache: true);

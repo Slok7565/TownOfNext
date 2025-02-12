@@ -113,7 +113,6 @@ class ExileControllerWrapUpPatch
         Utils.CountAlivePlayers(true);
         Utils.AfterMeetingTasks();
         Utils.SyncAllSettings();
-        if (Camouflage.IsCamouflage) foreach (var pc in Main.AllPlayerControls) Camouflage.RpcSetSkin(pc); // 会议结束后恢复小黑人
         Utils.NotifyRoles();
     }
 
