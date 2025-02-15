@@ -300,14 +300,24 @@ class ShapeshiftPatch
 
         if (!shapeshifting) Camouflage.RpcSetSkin(__instance);
 
-        //変身解除のタイミングがずれて名前が直せなかった時のために強制書き換え
-        if (!shapeshifting)
+        // 变形后刷新玩家名字
+        _ = new LateTask(() =>
+        {
+            Utils.NotifyRoles(NoCache: true);
+        },
+        1.2f, "ShapeShiftNotify");
+
+        // 变形后刷新玩家小黑人状态
+        if (shapeshifting && Camouflage.IsCamouflage)
         {
             _ = new LateTask(() =>
             {
-                Utils.NotifyRoles(NoCache: true);
+                if (GameStates.IsInTask)
+                {
+                    Camouflage.RpcSetSkin(__instance, ForceChange: true);
+                } 
             },
-            1.2f, "ShapeShiftNotify");
+            1.2f, "ShapeShiftRpcSetSkin");
         }
     }
 }

@@ -68,7 +68,7 @@ public static class Camouflage
             Utils.NotifyRoles(NoCache: true);
         }
     }
-    public static void RpcSetSkin(PlayerControl target, bool ForceRevert = false, bool RevertToDefault = false)
+    public static void RpcSetSkin(PlayerControl target, bool ForceRevert = false, bool RevertToDefault = false, bool ForceChange = false)
     {
         if (!(AmongUsClient.Instance.AmHost && (Options.CommsCamouflage.GetBool() || CustomRoles.Concealer.IsExist(true)))) return;
         if (target == null) return;
@@ -101,7 +101,7 @@ public static class Camouflage
         }
 
 
-        if (newOutfit.Compare(target.Data.DefaultOutfit)) return;
+        if (newOutfit.Compare(target.Data.DefaultOutfit) && !ForceChange) return;
 
         Logger.Info($"newOutfit={newOutfit.GetString()}", "RpcSetSkin");
 
