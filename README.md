@@ -4,7 +4,7 @@
 
   </br>
 
-  <h3>👉 <a href="https://github.com/TownOfNext/TownOfNext/blob/TONX-unofficial/README.md">English</a> | <a href="https://github.com/TownOfNext/TownOfNext/blob/TONX-unofficial/README_zh.md">中文</a> 👈</h3>
+  <h3>👉 English | <a href="README_zh.md">中文</a> 👈</h3>
   
   </br>
 
